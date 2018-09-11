@@ -1,0 +1,45 @@
+version: "3.7"
+
+volumes:
+  rabbit_data:
+
+networks:
+  backend:
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - ${POC_RABBITMQ_PORT:-5672}:5672
+      - ${POC_RABBITMQ_ADMIN_PORT:-15672}:15672
+    networks:
+      - backend
+    volumes:
+      - rabbit_data:/var/lib/rabbitmq
+  rpc_server:
+    image: icalialabs/scatter-gather-demo-rpc-server:development
+    build:
+      context: rpc_server
+      target: development
+    volumes:
+      - ./rpc_server:/usr/src
+    depends_on:
+    - rabbitmq
+    networks:
+    - backend
+    environment:
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672
+
+  rpc_client:
+    image: icalialabs/scatter-gather-demo-rpc-client:development
+    build:
+      context: rpc_client
+      target: development
+    volumes:
+      - ./rpc_client:/usr/src
+    depends_on:
+    - rabbitmq
+    networks:
+    - backend
+    environment:
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672

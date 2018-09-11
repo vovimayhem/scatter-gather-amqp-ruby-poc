@@ -1,0 +1,26 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    amq-protocol (2.3.0)
+    bunny (2.11.0)
+      amq-protocol (~> 2.3.0)
+    byebug (10.0.2)
+    coderay (1.1.2)
+    method_source (0.9.0)
+    pry (0.11.3)
+      coderay (~> 1.1.0)
+      method_source (~> 0.9.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bunny
+  byebug
+  pry (~> 0.11.3)
+
+RUBY VERSION
+   ruby 2.5.1p57
+
+BUNDLED WITH
+   1.16.4

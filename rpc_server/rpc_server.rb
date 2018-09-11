@@ -51,7 +51,7 @@ class QueryServer
   end
 
   def query(parameter)
-    return JSON.generate({ name: Faker::FunnyName.two_word_name })
+    return JSON.generate([{ name: Faker::FunnyName.two_word_name }])
   end
 end
 

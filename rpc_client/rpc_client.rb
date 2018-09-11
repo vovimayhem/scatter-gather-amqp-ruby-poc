@@ -5,7 +5,7 @@ require 'securerandom'
 require 'json'
 
 class QueryService
-  QUERY_WAIT_IN_SECONDS = 2
+  QUERY_WAIT_IN_SECONDS = 1
 
   attr_accessor :call_id, :responses, :lock, :condition, :connection,
                 :channel, :reply_queue, :exchange
@@ -25,15 +25,15 @@ class QueryService
     @call_id = SecureRandom.uuid
     @responses = []
 
-    exchange.publish(n.to_s,
+    exchange.publish n.to_s,
                      routing_key: 'procedures.query',
                      correlation_id: call_id,
-                     reply_to: reply_queue.name)
+                     reply_to: reply_queue.name
 
     # wait for the signal to continue the execution
     lock.synchronize { condition.wait(lock, QUERY_WAIT_IN_SECONDS) }
 
-    responses
+    responses.flatten.sort { |a,b| a['name'] <=> b['name'] }
   end
 
   def stop

@@ -36,3 +36,5 @@ ADD Gemfile* /usr/src/
 # 4: Install the current project gems - they can be safely changed later during
 # development via `bundle install` or `bundle update`:
 RUN bundle install --jobs=4 --retry=3
+
+CMD ["ruby", "rpc_server.rb"]

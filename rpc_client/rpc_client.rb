@@ -5,16 +5,15 @@ require 'securerandom'
 
 class FibonacciClient
   attr_accessor :call_id, :response, :lock, :condition, :connection,
-                :channel, :server_queue_name, :reply_queue, :exchange
+                :channel, :reply_queue, :exchange
 
-  def initialize(server_queue_name)
+  def initialize()
     conn_string = ENV.fetch 'AMQP_URL', 'amqp://guest:guest@localhost:5672'
     @connection = Bunny.new(conn_string, automatically_recover: false)
     @connection.start
 
     @channel = connection.create_channel
-    @exchange = channel.default_exchange
-    @server_queue_name = server_queue_name
+    @exchange = channel.topic('rpc.calls')
 
     setup_reply_queue
   end
@@ -23,7 +22,7 @@ class FibonacciClient
     @call_id = SecureRandom.uuid
 
     exchange.publish(n.to_s,
-                     routing_key: server_queue_name,
+                     routing_key: 'procedures.fibonacci',
                      correlation_id: call_id,
                      reply_to: reply_queue.name)
 
@@ -44,8 +43,15 @@ class FibonacciClient
     @lock = Mutex.new
     @condition = ConditionVariable.new
     that = self
-    @reply_queue = channel.queue('', exclusive: true)
 
+    # We'll create a reply queue. This will be binded to the exchange using a
+    # routing key with the same name as the queue:
+    queue_name = "reply-to-#{SecureRandom.uuid}"
+    @reply_queue = channel
+      .queue(queue_name, exclusive: true)
+      .bind(exchange, routing_key: queue_name)
+
+    # We'll subscribe a callback to the reply queue:
     reply_queue.subscribe do |_delivery_info, properties, payload|
       if properties[:correlation_id] == that.call_id
         that.response = payload.to_i
@@ -57,7 +63,7 @@ class FibonacciClient
   end
 end
 
-client = FibonacciClient.new('rpc_queue')
+client = FibonacciClient.new
 
 num = 23
 puts " [x] Requesting fib(#{num})"

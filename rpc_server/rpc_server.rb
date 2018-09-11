@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 require 'bunny'
+require 'securerandom'
+
+STDOUT.sync = true
 
 class FibonacciServer
   def initialize
@@ -9,9 +12,14 @@ class FibonacciServer
     @channel = @connection.create_channel
   end
 
-  def start(queue_name)
-    @queue = channel.queue(queue_name)
-    @exchange = channel.default_exchange
+  def start
+    @exchange = channel.topic('rpc.calls')
+
+    queue_name = "procedures.fibonacci.server-#{SecureRandom.uuid}"
+    @queue = channel
+      .queue(queue_name, exclusive: true, auto_delete: true)
+      .bind(exchange, routing_key: 'procedures.fibonacci')
+
     subscribe_to_queue
   end
 
@@ -26,7 +34,11 @@ class FibonacciServer
 
   def subscribe_to_queue
     queue.subscribe(block: true) do |_delivery_info, properties, payload|
+      puts "  -> Received payload '#{payload}'"
+
       result = fibonacci(payload.to_i)
+      puts "  -> Publishing result '#{result}' to #{properties.reply_to}" \
+           " (Correlation ID: #{properties.correlation_id})"
 
       exchange.publish(
         result.to_s,
@@ -47,7 +59,7 @@ begin
   server = FibonacciServer.new
 
   puts ' [x] Awaiting RPC requests'
-  server.start('rpc_queue')
+  server.start
 rescue Interrupt => _
   server.stop
 end

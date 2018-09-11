@@ -2,9 +2,12 @@
 require 'bunny'
 require 'thread'
 require 'securerandom'
+require 'json'
 
-class FibonacciClient
-  attr_accessor :call_id, :response, :lock, :condition, :connection,
+class QueryService
+  QUERY_WAIT_IN_SECONDS = 2
+
+  attr_accessor :call_id, :responses, :lock, :condition, :connection,
                 :channel, :reply_queue, :exchange
 
   def initialize()
@@ -20,16 +23,17 @@ class FibonacciClient
 
   def call(n)
     @call_id = SecureRandom.uuid
+    @responses = []
 
     exchange.publish(n.to_s,
-                     routing_key: 'procedures.fibonacci',
+                     routing_key: 'procedures.query',
                      correlation_id: call_id,
                      reply_to: reply_queue.name)
 
     # wait for the signal to continue the execution
-    lock.synchronize { condition.wait(lock) }
+    lock.synchronize { condition.wait(lock, QUERY_WAIT_IN_SECONDS) }
 
-    response
+    responses
   end
 
   def stop
@@ -54,21 +58,18 @@ class FibonacciClient
     # We'll subscribe a callback to the reply queue:
     reply_queue.subscribe do |_delivery_info, properties, payload|
       if properties[:correlation_id] == that.call_id
-        that.response = payload.to_i
-
-        # sends the signal to continue the execution of #call
-        that.lock.synchronize { that.condition.signal }
+        that.responses << JSON.parse(payload)
       end
     end
   end
 end
 
-client = FibonacciClient.new
+client = QueryService.new
 
 num = 23
-puts " [x] Requesting fib(#{num})"
+puts " [x] Requesting query(#{num})"
 response = client.call(num)
 
-puts " [.] Got #{response}"
+puts " [.] Got #{response.inspect}"
 
 client.stop

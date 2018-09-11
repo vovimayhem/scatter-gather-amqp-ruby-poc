@@ -1,10 +1,12 @@
 #!/usr/bin/env ruby
 require 'bunny'
 require 'securerandom'
+require 'faker'
+require 'json'
 
 STDOUT.sync = true
 
-class FibonacciServer
+class QueryServer
   def initialize
     conn_string = ENV.fetch 'AMQP_URL', 'amqp://guest:guest@localhost:5672'
     @connection = Bunny.new conn_string
@@ -15,10 +17,10 @@ class FibonacciServer
   def start
     @exchange = channel.topic('rpc.calls')
 
-    queue_name = "procedures.fibonacci.server-#{SecureRandom.uuid}"
+    queue_name = "procedures.query.server-#{SecureRandom.uuid}"
     @queue = channel
       .queue(queue_name, exclusive: true, auto_delete: true)
-      .bind(exchange, routing_key: 'procedures.fibonacci')
+      .bind(exchange, routing_key: 'procedures.query')
 
     subscribe_to_queue
   end
@@ -36,7 +38,7 @@ class FibonacciServer
     queue.subscribe(block: true) do |_delivery_info, properties, payload|
       puts "  -> Received payload '#{payload}'"
 
-      result = fibonacci(payload.to_i)
+      result = query(payload.to_i)
       puts "  -> Publishing result '#{result}' to #{properties.reply_to}" \
            " (Correlation ID: #{properties.correlation_id})"
 
@@ -48,15 +50,13 @@ class FibonacciServer
     end
   end
 
-  def fibonacci(value)
-    return value if value.zero? || value == 1
-
-    fibonacci(value - 1) + fibonacci(value - 2)
+  def query(parameter)
+    return JSON.generate({ name: Faker::FunnyName.two_word_name })
   end
 end
 
 begin
-  server = FibonacciServer.new
+  server = QueryServer.new
 
   puts ' [x] Awaiting RPC requests'
   server.start

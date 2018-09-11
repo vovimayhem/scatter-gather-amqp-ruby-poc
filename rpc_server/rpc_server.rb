@@ -39,7 +39,7 @@ class QueryServer
       puts "  -> Received payload '#{payload}'"
 
       result = query(payload.to_i)
-      puts "  -> Publishing result '#{result}' to #{properties.reply_to}" \
+      puts "  <- Publishing result '#{result}' to #{properties.reply_to}" \
            " (Correlation ID: #{properties.correlation_id})"
 
       exchange.publish(
